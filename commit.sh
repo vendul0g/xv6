@@ -11,9 +11,8 @@ else
 	fi
 fi
 
-echo $1
-#git add -A
-#git commit -m $1
-#git branch -M main
-#git remote add origin https://github.com/vendul0g/xv6.git
-#git push -u origin main
+#echo $1
+git add -A
+git commit -m "$1"
+git push -u origin main
+
