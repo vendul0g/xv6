@@ -77,7 +77,6 @@ sys_sbrk(void)
       return -1;
   }
 	myproc()->sz= newsz; //actualizamos el sz del proceso
-	cprintf("->old=%d,new=%d,myproc()->sz=%d\n",oldsz,newsz,myproc()->sz);
 
  // if(growproc(n) < 0)//El tamaño nuevo se pone en esta función
  //   return -1;

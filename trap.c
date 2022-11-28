@@ -83,27 +83,52 @@ trap(struct trapframe *tf)
     break;
 
   //PAGEBREAK: 13
-	case T_PGFLT:
+	case T_PGFLT://Fallo de página
 		//Comprobamos que no se pase del kerbase
 		if(rcr2() >= KERNBASE)
 		{
 			cprintf("kernbase superado");
+			myproc()->killed = 1;
+			break;
 		}
 		//comprobar si está en la página de guardia
+		
 		//Comprobamos si es el kernel el que provoca el fallo de página
 		if((tf->cs&3) == 0)
 		{
-			cprintf("Hola soy el kernel\n");
+			cprintf("Hola soy el kernel y tengo un fallo de página\n");
+			myproc()->killed = 1;
+			break;
 		}
-		cprintf("FALLO DE PAGINA: %s\n", myproc()->name);
     cprintf("pid %d %s: trap %d err %d on cpu %d "
-            "eip 0x%x addr 0x%x ->sz = 0x%d\n",
+            "eip 0x%x addr 0x%x ->sz = %d\n",
             myproc()->pid, myproc()->name, tf->trapno,
             tf->err, cpuid(), tf->eip, rcr2(),myproc()->sz);
-		char *mem = kalloc();
+		//Vamos a coger una página solo si se cumplen las condiciones anteriores
+		char *mem = kalloc();//Cogemos la página física
 		if(mem == 0)
+		{
 			cprintf("panic: kalloc didn't reserve page\n");
-		mappages(myproc()->pgdir, (char *)PGROUNDDOWN(rcr2()), PGSIZE, V2P(mem), PTE_W | PTE_U);
+			myproc()->killed = 1;
+			break;
+		}
+		memset(mem, 0, PGSIZE);//Pongo la página a 0 para entregarla
+		for(int i=0; i<PGSIZE; i++)
+		{
+			if(mem[i]==1)
+				cprintf("HAY UN 1\n");
+			//cprintf("%d-%d\n",i,mem[i]);
+		}
+
+		//mapeo en la TP
+		if(mappages(myproc()->pgdir, (char *)PGROUNDDOWN(rcr2()), PGSIZE, V2P(mem), PTE_W | PTE_U) < 0)
+		{
+      cprintf("allocuvm out of memory (2)\n");
+      kfree(mem);
+			myproc()->killed = 1;
+			break;
+		}
+		cprintf("Pagina concedida\n");
 		break;
 
   default://Aquí llegan las demás
@@ -115,17 +140,13 @@ trap(struct trapframe *tf)
     }
 																		
     // In user space, assume process misbehaved.
-    cprintf("pid %d %s: trap %d err %d on cpu %d "
+    cprintf("_pid %d %s: trap %d err %d on cpu %d "
             "eip 0x%x addr 0x%x--kill proc\n",
             myproc()->pid, myproc()->name, tf->trapno,
             tf->err, cpuid(), tf->eip, rcr2());
     myproc()->killed = 1;
   }//fin switch
 
-	if(status == 0)
-	{	
-		cprintf("panic");
-	}
   // Force process exit if it has been killed and is in user space.
   // (If it is still executing in the kernel, let it keep running
   // until it gets to the regular system call return.)

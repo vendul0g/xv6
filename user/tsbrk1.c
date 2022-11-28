@@ -5,7 +5,6 @@ int
 main(int argc, char *argv[])
 {
   char* a = sbrk (15000);
-
   a[500] = 1;
 
   if ((uint)a + 15000 != (uint) sbrk (-15000))
@@ -14,6 +13,7 @@ main(int argc, char *argv[])
     exit(1);
   }
 
+  
   if (a != sbrk (0))
   {
     printf (1, "sbrk() con cero falló.\n");
@@ -26,7 +26,7 @@ main(int argc, char *argv[])
     exit(3);
   }
 
-  printf (1, "Debe imprimir 1: %d.\n", a[500]);//++a[500]. Como va a funcionar si le suma 1
+  printf (1, "Debe imprimir 1: %d.\n", ++a[500]); // el valor de a[500] debería ser 0 porque las páginas se entregan al usuario puestas a 0
 
   exit(0);
 }

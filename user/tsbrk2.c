@@ -5,7 +5,7 @@ char a[4096] = {0};
 
 int recursive(int v)
 {
-  printf (1, ".");
+  printf (1, ":%d",v);
   volatile int q = v;
   if (q > 0)
     return recursive (q+1)+recursive (q+2);
