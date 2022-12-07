@@ -57,24 +57,21 @@ sys_getpid(void)
 
 int
 sys_sbrk(void)
-{
-  int addr;
+{	
+	uint addr = myproc()->sz; //Devuelvo el tamaño inicial
   int n;
-	int oldsz = myproc()->sz;
-	int newsz = oldsz;
-  addr = myproc()->sz;//Devuelvo el tamaño inicial
-  if(argint(0, &n) < 0)
+	uint oldsz = myproc()->sz;
+  uint newsz;
+
+	if(argint(0, &n) < 0)
     return -1;
-	//cprintf("old=%d,n=%d\n",oldsz,n);
-	if(n > 0)
-	{
-		newsz = oldsz + n;//si n es positivo, aumento el tamaño (Ya fallará en trap.c) 
-	}
-	else if(n < 0)
-	{//Si n es negativo, hago dealloc y actualizo el size tambien
-		//Soy perezoso para reservar memoria, pero no para liberarla
-    if((newsz = deallocuvm(myproc()->pgdir, oldsz, oldsz + n)) == 0)
-      return -1;
+	newsz = oldsz + n; //independientemente del valor de n, actualizamos el newsz
+	
+	if(n < 0)
+	{//Si n es negativo ->dealloc, porque la liberación de memoria no es perezosa
+		if((newsz = deallocuvm(myproc()->pgdir, oldsz, oldsz + n)) == 0)
+   		return -1;
+		lcr3(V2P(myproc()->pgdir));  // Invalidate TLB. Cambia la tabla de páginas
   }
 	myproc()->sz= newsz; //actualizamos el sz del proceso
 
@@ -104,6 +101,8 @@ sys_sleep(void)
   return 0;
 }
 
+//Implementación de llamada al sistema date para sacar la fecha actual por pantalla
+//Devuelve 0 en caso de acabar correctamente y -1 en caso de fallo
 int
 sys_date(void)
 {

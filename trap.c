@@ -36,7 +36,7 @@ idtinit(void)
 void
 trap(struct trapframe *tf)
 {
-  int status = -1;
+  int status = tf->trapno+1;
 
   if(tf->trapno == T_SYSCALL){
     if(myproc()->killed)
@@ -47,8 +47,6 @@ trap(struct trapframe *tf)
       exit(status);
     return;
   }
-
-  status = tf->trapno+1;
 
   switch(tf->trapno){
   case T_IRQ0 + IRQ_TIMER:
@@ -84,51 +82,28 @@ trap(struct trapframe *tf)
 
   //PAGEBREAK: 13
 	case T_PGFLT://Fallo de página
-		//Comprobamos que no se pase del kerbase
-		if(rcr2() >= KERNBASE)
-		{
-			cprintf("kernbase superado");
-			myproc()->killed = 1;
-			break;
-		}
-		//comprobar si está en la página de guardia
-		
-		//Comprobamos si es el kernel el que provoca el fallo de página
-		if((tf->cs&3) == 0)
-		{
-			cprintf("Hola soy el kernel y tengo un fallo de página\n");
-			myproc()->killed = 1;
-			break;
-		}
-    cprintf("pid %d %s: trap %d err %d on cpu %d "
-            "eip 0x%x addr 0x%x ->sz = %d\n",
+		//Comprobaciones antes de reservar página
+		//Reserva de página
+/*		cprintf("pid %d %s: trap %d err %d on cpu %d eip 0x%x addr 0x%x ->sz = %d, groundown(rcr2)=%x\n",
             myproc()->pid, myproc()->name, tf->trapno,
-            tf->err, cpuid(), tf->eip, rcr2(),myproc()->sz);
-		//Vamos a coger una página solo si se cumplen las condiciones anteriores
-		char *mem = kalloc();//Cogemos la página física
+            tf->err, cpuid(), tf->eip, rcr2(),myproc()->sz, PGROUNDDOWN(rcr2()));
+*/
+		char *mem = kalloc();//Cojo la página física
 		if(mem == 0)
 		{
-			cprintf("panic: kalloc didn't reserve page\n");
+			cprintf("panic: kalloc didn't alloc page\n");
 			myproc()->killed = 1;
 			break;
 		}
-		memset(mem, 0, PGSIZE);//Pongo la página a 0 para entregarla
-		for(int i=0; i<PGSIZE; i++)
+		memset(mem, 3, PGSIZE);//Pongo todos los bytes de la página a 0
+		if(mappages(myproc()->pgdir, (char *)PGROUNDDOWN(rcr2()), PGSIZE, V2P(mem), PTE_W | PTE_U) <0)
 		{
-			if(mem[i]==1)
-				cprintf("HAY UN 1\n");
-			//cprintf("%d-%d\n",i,mem[i]);
-		}
-
-		//mapeo en la TP
-		if(mappages(myproc()->pgdir, (char *)PGROUNDDOWN(rcr2()), PGSIZE, V2P(mem), PTE_W | PTE_U) < 0)
-		{
-      cprintf("allocuvm out of memory (2)\n");
-      kfree(mem);
+			cprintf("mappages: out of memory\n");
 			myproc()->killed = 1;
 			break;
 		}
-		cprintf("Pagina concedida\n");
+		myproc()->numpages++;
+		//cprintf("Pagina concedida: %d\n",myproc()->numpages);
 		break;
 
   default://Aquí llegan las demás
@@ -150,10 +125,8 @@ trap(struct trapframe *tf)
   // Force process exit if it has been killed and is in user space.
   // (If it is still executing in the kernel, let it keep running
   // until it gets to the regular system call return.)
-  if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)
-  {     
+  if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)     
     exit(status);
-  }
 
   // Force process to give up CPU on clock tick.
   // If interrupts were on while locks held, would need to check nlock.

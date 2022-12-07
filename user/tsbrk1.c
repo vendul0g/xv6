@@ -6,14 +6,12 @@ main(int argc, char *argv[])
 {
   char* a = sbrk (15000);
   a[500] = 1;
-
   if ((uint)a + 15000 != (uint) sbrk (-15000))
   {
     printf (1, "sbrk() con número positivo falló.\n");
     exit(1);
   }
 
-  
   if (a != sbrk (0))
   {
     printf (1, "sbrk() con cero falló.\n");
@@ -27,6 +25,15 @@ main(int argc, char *argv[])
   }
 
   printf (1, "Debe imprimir 1: %d.\n", ++a[500]); // el valor de a[500] debería ser 0 porque las páginas se entregan al usuario puestas a 0
-
+/*
+	char *a = sbrk(15000);
+	printf(1,"a= 0x%x\n",a);
+	for(int i=0; i<15000; i++)
+	{	
+		a[i] = 0;
+	}
+	char *b = sbrk(500);
+	printf(1,"b= 0x%x\n",b);
+*/	
   exit(0);
 }

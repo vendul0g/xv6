@@ -278,6 +278,8 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
   return newsz;
 }
 
+
+
 // Free a page table and all the physical memory pages
 // in the user part if dodeallocuvm is not zero
 void

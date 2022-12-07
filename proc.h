@@ -36,6 +36,7 @@ enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
 struct proc {
+	uint numpages;							 // 
 	uint exitcode;							 // Codigo de salida de un proceso, para que lo sepa el padre
   uint sz;                     // Size of process memory (bytes)
   pde_t* pgdir;                // Page table

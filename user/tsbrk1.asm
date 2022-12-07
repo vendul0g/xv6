@@ -26,7 +26,6 @@ main(int argc, char *argv[])
   1d:	89 c3                	mov    %eax,%ebx
   a[500] = 1;
   1f:	c6 80 f4 01 00 00 01 	movb   $0x1,0x1f4(%eax)
-
   if ((uint)a + 15000 != (uint) sbrk (-15000))
   26:	8d b0 98 3a 00 00    	lea    0x3a98(%eax),%esi
   2c:	c7 04 24 68 c5 ff ff 	movl   $0xffffc568,(%esp)
@@ -45,7 +44,6 @@ main(int argc, char *argv[])
   55:	e8 8f 00 00 00       	call   e9 <exit>
   }
 
-  
   if (a != sbrk (0))
   5a:	83 ec 0c             	sub    $0xc,%esp
   5d:	6a 00                	push   $0x0
@@ -92,7 +90,11 @@ main(int argc, char *argv[])
   c9:	68 e3 03 00 00       	push   $0x3e3
   ce:	6a 01                	push   $0x1
   d0:	e8 57 01 00 00       	call   22c <printf>
-
+		a[i] = 0;
+	}
+	char *b = sbrk(500);
+	printf(1,"b= 0x%x\n",b);
+*/	
   exit(0);
   d5:	c7 04 24 00 00 00 00 	movl   $0x0,(%esp)
   dc:	e8 08 00 00 00       	call   e9 <exit>
