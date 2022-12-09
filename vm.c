@@ -54,6 +54,29 @@ walkpgdir(pde_t *pgdir, const void *va, int alloc)
   return &pgtab[PTX(va)];
 }
 
+
+// Page fault error:
+// Search in the page table for an address to check what flags 
+// are set
+// Return an "uint" value with the flags activated in the entry
+// of address in the page table
+uint
+page_fault_error(pde_t *pgdir, uint va)
+{
+	uint error;
+  char *a;
+  pte_t *pte;
+
+  a = (char*)PGROUNDDOWN(va);
+  if( (pte = walkpgdir(pgdir, a, 0)) == 0)
+    return -1;
+		
+	error = *pte & 0x1F;
+	
+  return error;
+}
+
+
 // Create PTEs for virtual addresses starting at va that refer to
 // physical addresses starting at pa. va and size might not
 // be page-aligned.
@@ -344,6 +367,44 @@ bad:
   freevm(d, 1);
   return 0;
 }
+
+// Given a parent process's page table, create a copy
+// of it for a child taking care of lazy memory
+pde_t*
+copyuvm1(pde_t *pgdir, uint sz)
+{
+  pde_t *d;
+  pte_t *pte;
+  uint pa, i, flags;
+  char *mem;
+  if((d = setupkvm()) == 0)
+    return 0;
+  for(i = 0; i < sz; i += PGSIZE){
+    if((pte = walkpgdir(pgdir, (void *) i, 1)) == 0)
+      panic("copyuvm: pte should exist");
+    if(!(*pte & PTE_P)){
+			//Si la página no está presente vamos a seguir
+			//iterando
+			continue;
+		}
+		//Si la página tiene el bit de presente, la copiamos
+    pa = PTE_ADDR(*pte);
+    flags = PTE_FLAGS(*pte);
+    if((mem = kalloc()) == 0)
+      goto bad;
+    memmove(mem, (char*)P2V(pa), PGSIZE);
+    if(mappages(d, (void*)i, PGSIZE, V2P(mem), flags) < 0) {
+      kfree(mem);
+      goto bad;
+    }
+  }
+  return d;
+
+bad:
+  freevm(d, 1);
+  return 0;
+}
+
 
 //PAGEBREAK!
 // Map user virtual address to kernel address.

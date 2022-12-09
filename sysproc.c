@@ -88,6 +88,10 @@ sys_sbrk(void)
   if(argint(0, &n) < 0)
     return -1;
 
+	//Hacemos comprobación para que solo reserve hasta el KERNBASE
+	if(oldsz + n > KERNBASE)
+		return -1;
+	
 	//Actualizamos el nuevo tamaño del proceso
 	newsz = oldsz + n;
 	
@@ -95,8 +99,8 @@ sys_sbrk(void)
 	{//Desalojamos las páginas físicas ocupadas hasta ahora
 		if((newsz = deallocuvm(myproc()->pgdir, oldsz, newsz)) == 0)
       return -1;
-    lcr3(V2P(myproc()->pgdir));  // Invalidate TLB. Cambia la tabla de páginas		
 	}
+  lcr3(V2P(myproc()->pgdir));  // Invalidate TLB. Cambia la tabla de páginas		
 
 	//Ahora cambiamos el tamaño del proceso
 	myproc()->sz = newsz;

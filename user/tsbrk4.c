@@ -5,11 +5,19 @@ int
 main(int argc, char *argv[])
 {
   char* a = sbrk (15000);
-
-  fork();
-
+	int pid, status;
+	
+	pid = fork();
+	if(pid!=0){
+		wait(&status);
+		if (WIFEXITED (status))
+      printf (1, "Exited child %d, exitcode %d\n", pid, WEXITSTATUS (status));
+    else if (WIFSIGNALED(status))
+      printf (1, "Exited child (failure) %d, trap %d\n", pid, WEXITTRAP (status));
+	}
+	
   a[500] = 1;
-
+	
   if ((uint)a + 15000 != (uint) sbrk (-15000))
   {
     printf (1, "sbrk() con número positivo falló.\n");
@@ -34,7 +42,15 @@ main(int argc, char *argv[])
 
   a=sbrk(1024*4096*2);
 
-  fork();
+	pid = fork();
+	if(pid!=0){
+		wait(&status);
+		if (WIFEXITED (status))
+      printf (1, "Exited child %d, exitcode %d\n", pid, WEXITSTATUS (status));
+    else if (WIFSIGNALED(status))
+      printf (1, "Exited child (failure) %d, trap %d\n", pid, WEXITTRAP (status));
+	}
+
 
   a[600*4096*2] = 1;
 

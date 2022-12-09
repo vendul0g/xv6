@@ -32,6 +32,13 @@ idtinit(void)
   lidt(idt, sizeof(idt));
 }
 
+
+void
+print_error(int code)
+{
+	cprintf("\nPage Fault, Error %d\n",code);
+}
+
 //PAGEBREAK: 41
 void
 trap(struct trapframe *tf)
@@ -83,12 +90,47 @@ trap(struct trapframe *tf)
 	
   //PAGEBREAK: 13
 	case T_PGFLT: //Fallo de página
-//borrar
-		cprintf("pid %d %s: trap %d err %d on cpu %d eip 0x%x addr 0x%x ->sz = %d, groundown(rcr2)=%x\n",
+/*/borrar
+		cprintf("pid %d %s: trap %d err %d on cpu %d eip 0x%x addr 0x%x ->sz = 0x%x, groundown(rcr2)=%x\n",
             myproc()->pid, myproc()->name, tf->trapno,
             tf->err, cpuid(), tf->eip, rcr2(),myproc()->sz, PGROUNDDOWN(rcr2()));
 //end borrar		
-		//Vamos a coger una página física
+*/
+		/*
+			Comprobaciones antes de conceder la página
+			Vamos a coger la página pedida para ver sus flags
+			En caso de acceso indebido, se devuelve error_code
+		*/
+		uint error_code =	page_fault_error(myproc()->pgdir, rcr2());
+
+		//Comprobamos que accede dentro del size
+		if(rcr2() > myproc()->sz){
+			cprintf("fuera de sz\n");
+			cprintf("tf->err=%d\n", tf->err);
+			print_error(error_code);
+			myproc()->killed = 1;
+			break;
+		}
+
+		//Comprobamos que no accede a nada por debajo de la pila
+		if(rcr2() < myproc()->stack_end){
+			cprintf("debajo de la pila:\n");
+			cprintf("tf->err=%d\n", tf->err);
+			print_error(error_code);
+			myproc()->killed = 1;
+			break;
+		}
+
+		//Comprobamos si accede a la zona del kernel
+		if(rcr2() >= KERNBASE){
+			cprintf("kernbase superado\n");
+			cprintf("tf->err=%d\n", tf->err);
+			print_error(error_code);
+			myproc()->killed = 1;
+			break;
+		}	
+
+		//Si cumplen todas las condiciones: coger una página física
 		char *mem = kalloc();
     if(mem == 0)
     {
@@ -105,7 +147,6 @@ trap(struct trapframe *tf)
       myproc()->killed = 1;
       break;
     } 
-		cprintf("Pagina concedida\n");
 		break;
 	
   default:

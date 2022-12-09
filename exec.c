@@ -12,7 +12,7 @@ exec(char *path, char **argv)
 {
   char *s, *last;
   int i, off;
-  uint argc, sz, sp, ustack[3+MAXARG+1];
+  uint argc, sz, sp, ustack[3+MAXARG+1], stack_end;
   struct elfhdr elf;
   struct inode *ip;
   struct proghdr ph;
@@ -66,7 +66,8 @@ exec(char *path, char **argv)
   if((sz = allocuvm(pgdir, sz, sz + 2*PGSIZE)) == 0)
     goto bad;
   clearpteu(pgdir, (char*)(sz - 2*PGSIZE));
-  sp = sz;
+  sp = sz;//sp está al comienzo de la pila
+	stack_end = sp - PGSIZE;//stack_end = final de la pila
 
   // Push argument strings, prepare rest of stack in ustack.
   for(argc = 0; argv[argc]; argc++) {
@@ -99,6 +100,7 @@ exec(char *path, char **argv)
   curproc->sz = sz;
   curproc->tf->eip = elf.entry;  // main
   curproc->tf->esp = sp;
+	curproc->stack_end = stack_end; //end of stack
   switchuvm(curproc);
   freevm(oldpgdir, 1);
   return 0;
