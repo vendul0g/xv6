@@ -24,7 +24,7 @@ extern char* sbrk(int);
 extern int sleep(int);
 extern int uptime(void);
 extern int date(struct rtcdate *);
-//extern int dup2(int, int);
+extern int dup2(int, int);
 
 // ulib.c
 extern int stat(const char*, struct stat*);
@@ -41,7 +41,7 @@ extern void free(void*);
 extern int atoi(const char*);
 
 #define NULL 0
-#define WIFEXITED(status) (((status) & 0x7f) == 0 )
+#define WIFEXITED(status) (((status) & 0x7f) == 0)
 #define WEXITSTATUS(status) (((status) & 0xff00) >> 8)
 #define WIFSIGNALED(status) (((status) & 0x7f) != 0)
 #define WEXITTRAP(status) (((status) & 0x7f) -1)

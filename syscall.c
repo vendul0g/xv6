@@ -30,7 +30,7 @@ fetchint(uint addr, int *ip)
 // Returns length of string, not including nul.
 int
 fetchstr(uint addr, char **pp)
-{//va a coger el elemento de la pila  ¡LA PILA ESTÁ EN LA DIRECCIÓN ESP! en el tf
+{
   char *s, *ep;
   struct proc *curproc = myproc();
 
@@ -48,7 +48,7 @@ fetchstr(uint addr, char **pp)
 // Fetch the nth 32-bit system call argument.
 int
 argint(int n, int *ip)
-{//n es el numero de argumento que queremos recuperar. ip es donde lo vamos a guardar
+{
   return fetchint((myproc()->tf->esp) + 4 + 4*n, ip);
 }
 
@@ -103,8 +103,8 @@ extern int sys_unlink(void);
 extern int sys_wait(void);
 extern int sys_write(void);
 extern int sys_uptime(void);
-extern int sys_date(void);//Inicializamos para el kernel -> Ejercicio 1
-extern int sys_dup2(void);//Ejercicio 2 
+extern int sys_date(void);
+extern int sys_dup2(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -128,8 +128,8 @@ static int (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
-[SYS_date]    sys_date,
-[SYS_dup2]    sys_dup2,
+[SYS_date]		sys_date,
+[SYS_dup2]		sys_dup2,
 };
 
 void

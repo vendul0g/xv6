@@ -28,7 +28,6 @@ main(int argc, char* argv[])
     printf (2, "dup2 no funciona con fd superior a NOFILE.\n");
 
   // Ejemplo de dup2 con fd existente
-  printf(1, "Empiezan las pruebas de NO error\n");
   if (dup2 (1,4) != 4)
     printf (2, "dup2 no funciona con fd existente.\n");
 

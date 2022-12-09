@@ -45,5 +45,5 @@ main(int argc, char *argv[])
 
   wait(NULL);
 
-  exit(NULL);
+  exit(0);
 }

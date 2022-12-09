@@ -1,4 +1,3 @@
-#todo esto son las ordenes implementadas para el usuario
 UPROGS=\
 	cat\
 	echo\
@@ -23,7 +22,6 @@ UPROGS=\
 	tsbrk3\
 	tsbrk4\
 	tsbrk5\
-
 
 # Try to infer the correct TOOLPREFIX if not set
 ifndef TOOLPREFIX

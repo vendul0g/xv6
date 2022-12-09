@@ -221,37 +221,39 @@ fork(void)
   return pid;
 }
 
+
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait() to find out it exited.
-int
+void
 exit(int status)
-{
-  struct proc *curproc = myproc(); // curproc = myproc() --> :e proc.h
+{ 
+  struct proc *curproc = myproc();
   struct proc *p;
   int fd;
-
+  
   if(curproc == initproc)
     panic("init exiting");
-
-  // Close all open files.
-  for(fd = 0; fd < NOFILE; fd++){// Recorre la tabla de descriptores de fichero y los cierra
+  
+  // Close all open files. 
+  for(fd = 0; fd < NOFILE; fd++){
     if(curproc->ofile[fd]){
       fileclose(curproc->ofile[fd]);
       curproc->ofile[fd] = 0;
     }
   }
-
+  
   begin_op();
   iput(curproc->cwd);
   end_op();
-  curproc->cwd = 0;//cwd = proceso actual
+  curproc->cwd = 0;
 
-  acquire(&ptable.lock);//bloquea la tabla de procesos global del SO
+  acquire(&ptable.lock);
 
+  //Acutalizamos nuestro código de salida como el status que nos llega en el argumento
+  curproc->exitcode = status;
   // Parent might be sleeping in wait().
-	curproc->exitcode = status;
-	wakeup1(curproc->parent);
+  wakeup1(curproc->parent);
 
   // Pass abandoned children to init.
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
@@ -267,18 +269,20 @@ exit(int status)
 
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
-
   sched();
   panic("zombie exit");
 }
 
+
 // Wait for a child process to exit and return its pid.
+// Return -1 if this process has no children.
 int
 wait(int *status)
 {
   struct proc *p;
   int havekids, pid;
   struct proc *curproc = myproc();
+
   acquire(&ptable.lock);
   for(;;){
     // Scan through table looking for exited children.
@@ -287,10 +291,10 @@ wait(int *status)
       if(p->parent != curproc)
         continue;
       havekids = 1;
-      //*status =(int)*curproc->kstack;
-			*status = p->exitcode;
       if(p->state == ZOMBIE){
-        // Found one.
+      	//cuando llegue aquí significa que hemos encontrado al hijo
+        //que estábamos buscando
+        *status = p->exitcode;
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
@@ -315,6 +319,7 @@ wait(int *status)
     sleep(curproc, &ptable.lock);  //DOC: wait-sleep
   }
 }
+
 
 //PAGEBREAK: 42
 // Per-CPU process scheduler.

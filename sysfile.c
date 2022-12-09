@@ -55,52 +55,72 @@ fdalloc(struct file *f)
 int
 sys_dup(void)
 {
-  struct file *f; //Aqui pondrá el fichero que va a duplicar
-  int fd;//Aquí tiene el descriptor de fichero que quiere duplicar (arg usuario)
+  struct file *f;
+  int fd;
 
-  if(argfd(0, 0, &f) < 0)//Coge el fd (arg 0) del usuario con argint y lo pasa a f con argfd
-			 //Comprueba si está abierto también con argfd
+  if(argfd(0, 0, &f) < 0)
     return -1;
-  if((fd=fdalloc(f)) < 0) //fdalloc busca el hueco dentro de la table de df.s y mete el fichero
+  if((fd=fdalloc(f)) < 0)
     return -1;
-  filedup(f); //lo unico que hace filedup es aumentar el ref de la ftable
+  filedup(f);
   return fd;
 }
 
+/*
+	dup2(oldfd, newfd): int
+	Realiza la misma función que dup, pero duplicando oldfd en newfd.
+	Si el fichero en newfd está abierto, se cerrará
+	En caso de éxito devuelve el valor de newfd
+	En caso de error devuelve -1
+*/
 int
 sys_dup2(void)//dup2(int oldfd, int newfd)
-{//Objetivo: duplicar oldfd para meterlo en el lugar de newfd (esté abierto o cerrado)
-  struct file *old_f;
-  struct file *new_f;
+{
+  struct file *old_f; //Fichero de oldfd
+  struct file *new_f; //Fichero de newfd
   int oldfd, newfd;
-  //Usamos argfd para coger oldfd => Comprueba si está abierto
+
+	/*
+  	Para coger el primer argumento (posición 0) de dup2 del usuario usamos argfd
+		puesto que ya va a comprobar si el fichero está abierto 
+	*/
   if(argfd(0,&oldfd,&old_f) < 0){
     return -1;
   }
-  //Ahora usamos argint para coger el newfd (arg 1 del usuario)
-  if(argint(1, &newfd) < 0){
+  
+	//Ahora usamos argint para coger el newfd (arg 1 del usuario)
+  if(argint(1, &newfd) < 0)
     return -1;
-  }
-  //Comprobamos limites de newfd
-  if( newfd<0 || newfd >NOFILE)
-  {
-    return -1;
-  }
+ 
+  //Si newf coincide con oldf no hacemos nada y devolvemos newfd (POSIX)
   if(newfd==oldfd)
-  {
     return newfd;
-  }
+  
+  //Comprobamos si newfd está en la tabla de descriptores de fichero
+  if( newfd<0 || newfd >NOFILE)
+  	return -1;
+
   //Compruebo si el newfd está abierto
-  if((new_f=myproc()->ofile[newfd]) != 0)//myproc->ofile es el la tabla de df.s abiertos  
-  {//Si el fichero está abierto lo cerramos (silenciosamente)
+  if((new_f=myproc()->ofile[newfd]) != 0)  
+  {
+		/*
+			Si el fichero está abierto lo cerramos (silenciosamente).
+			Para cerrar el fichero vamos a usar fileclose, que va a acceder a la ftable 
+			para decrementar el reference count del fichero de newfd.
+		*/
     fileclose(new_f);
   }
-  //Duplico el oldfd en newfd
+  
+	//Duplico el oldfd en newfd
   myproc()->ofile[newfd] = old_f;
-  //Aumento el ref
-  filedup(old_f); 
+  
+	//filedup accede a la ftable y aumenta el reference count del fichero de oldfd
+  filedup(old_f);
   return newfd;
 }
+
+
+
 
 int
 sys_read(void)

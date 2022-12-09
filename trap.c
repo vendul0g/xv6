@@ -36,7 +36,8 @@ idtinit(void)
 void
 trap(struct trapframe *tf)
 {
-  int status = tf->trapno+1;
+	//Declaramos la variable status, que toma el valor del número de trap
+	int status = tf->trapno+1;	
 
   if(tf->trapno == T_SYSCALL){
     if(myproc()->killed)
@@ -79,43 +80,43 @@ trap(struct trapframe *tf)
             cpuid(), tf->cs, tf->eip);
     lapiceoi();
     break;
-
+	
   //PAGEBREAK: 13
-	case T_PGFLT://Fallo de página
-		//Comprobaciones antes de reservar página
-		//Reserva de página
-/*		cprintf("pid %d %s: trap %d err %d on cpu %d eip 0x%x addr 0x%x ->sz = %d, groundown(rcr2)=%x\n",
+	case T_PGFLT: //Fallo de página
+//borrar
+		cprintf("pid %d %s: trap %d err %d on cpu %d eip 0x%x addr 0x%x ->sz = %d, groundown(rcr2)=%x\n",
             myproc()->pid, myproc()->name, tf->trapno,
             tf->err, cpuid(), tf->eip, rcr2(),myproc()->sz, PGROUNDDOWN(rcr2()));
-*/
-		char *mem = kalloc();//Cojo la página física
-		if(mem == 0)
-		{
-			cprintf("panic: kalloc didn't alloc page\n");
-			myproc()->killed = 1;
-			break;
-		}
-		memset(mem, 3, PGSIZE);//Pongo todos los bytes de la página a 0
-		if(mappages(myproc()->pgdir, (char *)PGROUNDDOWN(rcr2()), PGSIZE, V2P(mem), PTE_W | PTE_U) <0)
-		{
-			cprintf("mappages: out of memory\n");
-			myproc()->killed = 1;
-			break;
-		}
-		myproc()->numpages++;
-		//cprintf("Pagina concedida: %d\n",myproc()->numpages);
+//end borrar		
+		//Vamos a coger una página física
+		char *mem = kalloc();
+    if(mem == 0)
+    {
+      cprintf("kalloc didn't alloc page\n");
+      myproc()->killed = 1;
+      break;
+    }
+    //Vamos a poner la página a 0 para entregársela al usuario
+		memset(mem, 0, PGSIZE);
+		//Mapeamos la página física en la dirección que pedía el usuario cuando falló (rcr2())
+    if(mappages(myproc()->pgdir, (char *)PGROUNDDOWN(rcr2()), PGSIZE, V2P(mem), PTE_W | PTE_U) <0)
+    {
+      cprintf("mappages: out of memory\n");
+      myproc()->killed = 1;
+      break;
+    } 
+		cprintf("Pagina concedida\n");
 		break;
-
-  default://Aquí llegan las demás
-		if(myproc() == 0 || (tf->cs&3) == 0){
+	
+  default:
+    if(myproc() == 0 || (tf->cs&3) == 0){
       // In kernel, it must be our mistake.
       cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
               tf->trapno, cpuid(), tf->eip, rcr2());
       panic("trap");
     }
-																		
     // In user space, assume process misbehaved.
-    cprintf("_pid %d %s: trap %d err %d on cpu %d "
+    cprintf("pid %d %s: trap %d err %d on cpu %d "
             "eip 0x%x addr 0x%x--kill proc\n",
             myproc()->pid, myproc()->name, tf->trapno,
             tf->err, cpuid(), tf->eip, rcr2());
@@ -125,7 +126,7 @@ trap(struct trapframe *tf)
   // Force process exit if it has been killed and is in user space.
   // (If it is still executing in the kernel, let it keep running
   // until it gets to the regular system call return.)
-  if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)     
+  if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)
     exit(status);
 
   // Force process to give up CPU on clock tick.
@@ -138,3 +139,5 @@ trap(struct trapframe *tf)
   if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)
     exit(status);
 }
+
+

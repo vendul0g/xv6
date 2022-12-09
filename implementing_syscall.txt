@@ -1,9 +1,0 @@
-Implementando una syscall
-1. Crear un programa de usuario que llame a tu nueva syscall en el user/ en C
-2. Cargar la llamada en el Makefile de usuario añadiendo la orden (nombre que luego tendrá) a la variable UPROGS 
-3. Darle en syscall.h un valor a la llamada nueva
-4. En user/usys.S hay que añadir la llamada nueva
-5. Añadir la llamada al fichero de definición de syscalls de user/user.h
-6. En syscall.c hay que añadir el método de nuestra llamada al systema sys_****() tanto arriba como abajo
-7. Implementamos la función de la syscall en sysproc.c, añadimos sys_****() y su implementación
-#Si lo que implementamos no es una orden de usuario se implementa en sysfile.c en lugar de sysproc

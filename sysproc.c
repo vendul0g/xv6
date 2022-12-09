@@ -13,29 +13,48 @@ sys_fork(void)
   return fork();
 }
 
+
+/*
+	Implementación del código de llamada al sistema para cuando un usuario
+	realiza un exit(status)
+*/
 int
 sys_exit(void)
-{ // Recuperamos el valor de salida con argint
-  int status;
+{
+	//Para esta nueva implementación, vamos a recuperar el status
+	//que puso el usuario como argumento y lo guardamos 
+  int status; 
+
+	//Puesto que es un valor entero, lo recuperamos de la pila (posición 0) con argint
   if(argint(0,&status) < 0)
-  {
     return -1;
-  }
+
+	//Desplazamos los  bits 8 posiciones a la izquierda
 	status = status << 8;
-  exit(status);
+
+  exit(status);//Llamamos a la función de salida del kernel
   return 0;  // not reached
+
 }
 
+/*
+	Implementación de la función wait(status) para un usuario
+*/
 int
 sys_wait(void)
-{ //Recuperamos la variable con argptr (int *)
+{
+	/*
+	Debemos almacenar el puntero a la variable del usuario (padre) 
+	para pasarle el estado de su hijo cuando realice el exit(status)
+	*/
   int *status;
-  int size = 4;
-
-  if(argptr(0,(void**) &status,size) < 0)
-  {
+  int size = 4;//Tamaño de un entero
+    
+  //Recuperamos el valor con argptr puesto que no es un entero, sino un puntero a entero
+	if(argptr(0,(void**) &status, size) < 0)
     return -1;
-  }
+  
+	//Por último, llamamos a la función wait del kernel
   return wait(status);
 }
 
@@ -57,27 +76,32 @@ sys_getpid(void)
 
 int
 sys_sbrk(void)
-{	
-	uint addr = myproc()->sz; //Devuelvo el tamaño inicial
-  int n;
+{
+	//La dirección que devolvemos siempre será la del tamaño 
+	//actual del proceso, que es por donde está el heap 
+	//actualmente (dirección de comienzo de la memoria libre)
+  int n;//Valor que quiere reservar el usuario
 	uint oldsz = myproc()->sz;
-  uint newsz;
+	uint newsz = oldsz;
 
-	if(argint(0, &n) < 0)
+	//Recuperamos el valor de n de la pila de usuario
+  if(argint(0, &n) < 0)
     return -1;
-	newsz = oldsz + n; //independientemente del valor de n, actualizamos el newsz
+
+	//Actualizamos el nuevo tamaño del proceso
+	newsz = oldsz + n;
 	
 	if(n < 0)
-	{//Si n es negativo ->dealloc, porque la liberación de memoria no es perezosa
-		if((newsz = deallocuvm(myproc()->pgdir, oldsz, oldsz + n)) == 0)
-   		return -1;
-		lcr3(V2P(myproc()->pgdir));  // Invalidate TLB. Cambia la tabla de páginas
-  }
-	myproc()->sz= newsz; //actualizamos el sz del proceso
+	{//Desalojamos las páginas físicas ocupadas hasta ahora
+		if((newsz = deallocuvm(myproc()->pgdir, oldsz, newsz)) == 0)
+      return -1;
+    lcr3(V2P(myproc()->pgdir));  // Invalidate TLB. Cambia la tabla de páginas		
+	}
 
- // if(growproc(n) < 0)//El tamaño nuevo se pone en esta función
- //   return -1;
-  return addr;
+	//Ahora cambiamos el tamaño del proceso
+	myproc()->sz = newsz;
+  
+  return oldsz;
 }
 
 int
@@ -101,23 +125,6 @@ sys_sleep(void)
   return 0;
 }
 
-//Implementación de llamada al sistema date para sacar la fecha actual por pantalla
-//Devuelve 0 en caso de acabar correctamente y -1 en caso de fallo
-int
-sys_date(void)
-{
- //Date tiene que recuperar el dato de la pila del usuario
- struct rtcdate *d;//Esto es lo que me pasa el usuario
- //vamos a usar argint para recuperar el argumento
- if(argptr(0, (void **) &d, sizeof(struct rtcdate)) < 0){//Le pasamos el rtcdate para que se rellene
-  return -1;
- }
- //Ahora una vez recuperado el arg -> Implementamos la syscall
- cmostime(d);//Esta función hace las veces de date
- return 0;
-
-}
-
 // return how many clock tick interrupts have occurred
 // since start.
 int
@@ -130,3 +137,24 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+//Implementación de llamada al sistema date para sacar la fecha actual por pantalla
+//Devuelve 0 en caso de acabar correctamente y -1 en caso de fallo
+int
+sys_date(void)
+{
+	//date tiene que recuperar el rtcdate de la pila del usuario
+ 	struct rtcdate *d;//Aquí vamos a guardar el argumento del usuario
+
+ 	//vamos a usar argptr para recuperar el rtcdate
+ 	if(argptr(0, (void **) &d, sizeof(struct rtcdate)) < 0){
+  	return -1;
+ 	}
+ 	//Ahora una vez recuperado el rtcdate solo tenemos que rellenarlo con los valores oportunos
+	//Para ello usamos cmostime, que rellena los valores del rtcdate con la fecha actual 
+ cmostime(d);
+
+ return 0;
+
+}
+

@@ -7,12 +7,10 @@
 
 #define N  1000
 
-
 void
 forktest(void)
 {
-
-	int n, pid;
+  int n, pid;
   int status;
 
   printf(1, "exit/wait with status test\n");
@@ -48,19 +46,8 @@ forktest(void)
     printf(1, "wait got too many\n");
     exit(-1);
   }
-	printf(1,"fork test OK\n");
-/*
-	int status = 1; 
-	int pid = fork();
-	if(pid == 0)
-		exit(1);
-	wait(&status);
-	printf(1,"_%x_\n",status);
-    if (WIFEXITED (status))
-      printf (1, "Exited child %d, exitcode %d\n", pid, WEXITSTATUS (status));
-    else if (WIFSIGNALED(status))
-      printf (1, "Exited child (failure) %d, trap %d\n", pid, WEXITTRAP (status));
-*/
+
+  printf(1, "fork test OK\n");
 }
 
 int

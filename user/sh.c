@@ -1,6 +1,5 @@
 // Shell.
 
-
 #include "types.h"
 #include "user.h"
 #include "fcntl.h"
@@ -13,9 +12,6 @@
 #define BACK  5
 
 #define MAXARGS 10
-
-
-//char *state[7] = { "UNUSED", "EMBRYO", "SLEEPING", "RUNNABLE", "RUNNING", "ZOMBIE", "UEXITED" };
 
 struct cmd {
   int type;
@@ -69,7 +65,7 @@ runcmd(struct cmd *cmd)
   struct redircmd *rcmd;
 
   if(cmd == 0)
-    exit(NULL);
+    exit(0);
 
   switch(cmd->type){
   default:
@@ -78,7 +74,7 @@ runcmd(struct cmd *cmd)
   case EXEC:
     ecmd = (struct execcmd*)cmd;
     if(ecmd->argv[0] == 0)
-      exit(NULL);
+      exit(0);
     exec(ecmd->argv[0], ecmd->argv);
     printf(2, "exec %s failed\n", ecmd->argv[0]);
     break;
@@ -88,7 +84,7 @@ runcmd(struct cmd *cmd)
     close(rcmd->fd);
     if(open(rcmd->file, rcmd->mode) < 0){
       printf(2, "open %s failed\n", rcmd->file);
-      exit(NULL);
+      exit(0);
     }
     runcmd(rcmd->cmd);
     break;
@@ -131,7 +127,7 @@ runcmd(struct cmd *cmd)
       runcmd(bcmd->cmd);
     break;
   }
-  exit(NULL);
+  exit(0);
 }
 
 int
@@ -148,9 +144,9 @@ getcmd(char *buf, int nbuf)
 int
 main(void)
 {
-  static char buf[100];
+  int status; //Estado de salida de los procesos que se ejecutan
+	static char buf[100];
   int fd;
-  int status = 4096;
 
   // Ensure that three file descriptors are open.
   while((fd = open("console", O_RDWR)) >= 0){
@@ -172,7 +168,8 @@ main(void)
     if(fork1() == 0)
       runcmd(parsecmd(buf));
     wait(&status);
-    printf(1, "Output code: %d\n",status);
+		//Mostramos el estado de salida del proceso ejecutado
+		printf(1, "Output code: %d\n", status);
   }
   exit(0);
 }
@@ -181,7 +178,7 @@ void
 panic(char *s)
 {
   printf(2, "%s\n", s);
-  exit(NULL);
+  exit(0);
 }
 
 int
