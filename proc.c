@@ -7,7 +7,7 @@
 #include "proc.h"
 #include "spinlock.h"
 
-struct {
+struct {//Aún no la he liado. Mi idea es poner aquí 2 arrays de procesos, según la prioridad
   struct spinlock lock;
   struct proc proc[NPROC];
 } ptable;
@@ -149,7 +149,7 @@ userinit(void)
   acquire(&ptable.lock);
 
   p->state = RUNNABLE;
-
+	p->proc_prio = LOW;
   release(&ptable.lock);
 }
 
@@ -199,6 +199,7 @@ fork(void)
   np->sz = curproc->sz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
+	np->proc_prio = LOW;
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -354,7 +355,7 @@ scheduler(void)
       p->state = RUNNING;
 
       swtch(&(c->scheduler), p->context);
-      switchkvm();
+      switchkvm();//Cambia a la tabla de páginas del kernel
 
       // Process is done running for now.
       // It should have changed its p->state before coming back.

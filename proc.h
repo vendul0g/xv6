@@ -34,9 +34,11 @@ struct context {
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+enum proc_prio { HIGH, LOW };
+
 // Per-process state
 struct proc {
-  uint stack_end;
+	enum proc_prio;							 // Process priority
 	int exitcode;								 // Exitcode of process
 	uint sz;                     // Size of process memory (bytes)
   pde_t* pgdir;                // Page table
@@ -45,6 +47,7 @@ struct proc {
   int pid;                     // Process ID
   struct proc *parent;         // Parent process
   struct trapframe *tf;        // Trap frame for current syscall
+  uint stack_end;							 // Address of stack ending
   struct context *context;     // swtch() here to run process
   void *chan;                  // If non-zero, sleeping on chan
   int killed;                  // If non-zero, have been killed

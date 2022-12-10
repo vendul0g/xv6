@@ -68,10 +68,13 @@ page_fault_error(pde_t *pgdir, uint va)
   pte_t *pte;
 
   a = (char*)PGROUNDDOWN(va);
-  if( (pte = walkpgdir(pgdir, a, 0)) == 0)
-    return -1;
+  if( (pte = walkpgdir(pgdir, a, 0)) == 0){
+    //Si la página que se busca no está mapeada, se devuelve
+		//0 para que sea concedida
+		return 0;
+	}
 		
-	error = *pte & 0x1F;
+	error = *pte & 0x7;
 	
   return error;
 }

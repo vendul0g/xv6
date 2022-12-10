@@ -100,9 +100,10 @@ sys_sbrk(void)
 		if((newsz = deallocuvm(myproc()->pgdir, oldsz, newsz)) == 0)
       return -1;
 	}
+
   lcr3(V2P(myproc()->pgdir));  // Invalidate TLB. Cambia la tabla de páginas		
 
-	//Ahora cambiamos el tamaño del proceso
+	//Ahora actualizamos el tamaño del proceso
 	myproc()->sz = newsz;
   
   return oldsz;
