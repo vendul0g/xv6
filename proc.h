@@ -34,11 +34,11 @@ struct context {
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
-enum proc_prio { HIGH, LOW };
+enum proc_prio { NORM_PRIO, HI_PRIO };
 
 // Per-process state
 struct proc {
-	enum proc_prio;							 // Process priority
+	enum proc_prio prio;				 // Process priority
 	int exitcode;								 // Exitcode of process
 	uint sz;                     // Size of process memory (bytes)
   pde_t* pgdir;                // Page table

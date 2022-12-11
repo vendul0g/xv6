@@ -22,6 +22,9 @@ UPROGS=\
 	tsbrk3\
 	tsbrk4\
 	tsbrk5\
+	tprio1\
+	tprio2\
+	tprio3\
 
 # Try to infer the correct TOOLPREFIX if not set
 ifndef TOOLPREFIX

@@ -1058,6 +1058,7 @@ main(void)
 }
 struct stat;
 struct rtcdate;
+enum proc_prio { HI_PRIO, NORM_PRIO };
 
 // system calls
 extern int fork(void);
@@ -1083,6 +1084,8 @@ extern int sleep(int);
 extern int uptime(void);
 extern int date(struct rtcdate *);
 extern int dup2(int, int);
+extern enum proc_prio getprio(int);
+extern int setprio(int, enum proc_prio);
 
 // ulib.c
 extern int stat(const char*, struct stat*);
@@ -1103,6 +1106,8 @@ extern int atoi(const char*);
 #define WEXITSTATUS(status) (((status) & 0xff00) >> 8)
 #define WIFSIGNALED(status) (((status) & 0x7f) != 0)
 #define WEXITTRAP(status) (((status) & 0x7f) -1)
+//#define NORM_PRIO 0
+//#define HI_PRIO 1
 // Shell.
 
 #include "types.h"
@@ -3764,6 +3769,65 @@ main(int argc, char *argv[])
   exit(0);
 }
 #include "types.h"
+#include "user.h"
+
+int
+main(int argc, char *argv[])
+{
+/*
+  // El padre sale, el hijo establece la máxima prioridad
+  if (fork() != 0)
+    exit(1);
+  
+  // Establecer máxima prioridad. Debe hacer que el shell ni aparezca hasta
+  // que termine
+  setprio (getpid(), HI_PRIO);
+
+  int r = 0;
+  
+  for (int i = 0; i < 2000; ++i)
+    for (int j = 0; j < 1000000; ++j)
+      r += i + j;
+
+  // Imprime el resultado
+  printf (1, "Resultado: %d\n", r);
+  
+  exit(0);
+*//*
+	printf(1,"Hola, soy tprio1, ");
+	printf(1, "mi prioridad es: %d\n",getprio(getpid()));
+	printf(1,"--cambio de prioridad-->%d_",HI_PRIO);
+	setprio(getpid(),HI_PRIO);
+	printf(1,"mi nueva prioridad es: %d\n",getprio(getpid()));
+	*/
+	printf(1,"norm_prio=%d, hi_prio=%d\n",NORM_PRIO,HI_PRIO);
+	exit(32);
+}
+#include "types.h"
+#include "user.h"
+
+int
+main(int argc, char *argv[])
+{
+  // Padre termina
+  if (fork() != 0)
+    exit(1);
+  
+  // Establecer prioridad normal. El shell aparecerá normalmente.
+  setprio (getpid(), NORM_PRIO);
+
+  int r = 0;
+  
+  for (int i = 0; i < 2000; ++i)
+    for (int j = 0; j < 1000000; ++j)
+      r += i + j;
+
+  // Imprime el resultado
+  printf (1, "Resultado: %d\n", r);
+  
+  exit(0);
+}
+#include "types.h"
 #include "stat.h"
 #include "user.h"
 #include "param.h"
@@ -4087,6 +4151,43 @@ printf(int fd, const char *fmt, ...)
       state = 0;
     }
   }
+}
+#include "types.h"
+#include "user.h"
+
+void
+do_calc (char* nombre)
+{
+  int r = 0;
+
+  for (int i = 0; i < 2000; ++i)
+    for (int j = 0; j < 1000000; ++j)
+      r += i + j;
+
+  // Imprime el resultado
+  printf (1, "%s: %d\n", nombre, r);
+}
+
+
+int
+main(int argc, char *argv[])
+{
+  // El proceso se inicia en baja prioridad.
+  // Genera otro proceso hijo que a su vez genera dos
+  if (fork() == 0)
+  {
+    fork();  // Ambos ejecutan:
+    do_calc("Low");
+    exit(1);
+  }
+
+  // Establecer máxima prioridad. Debe hacer que el shell ni aparezca hasta
+  // que termine
+  setprio (getpid(), HI_PRIO);
+
+  fork();  // Ambos ejecutan:
+  do_calc("Hi");
+  exit(0);
 }
 #include "types.h"
 #include "user.h"
@@ -4851,6 +4952,8 @@ extern int sys_write(void);
 extern int sys_uptime(void);
 extern int sys_date(void);
 extern int sys_dup2(void);
+extern int sys_getprio(void);
+extern int sys_setprio(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -4876,6 +4979,8 @@ static int (*syscalls[])(void) = {
 [SYS_close]   sys_close,
 [SYS_date]		sys_date,
 [SYS_dup2]		sys_dup2,
+[SYS_getprio]	sys_getprio,
+[SYS_setprio]	sys_setprio,
 };
 
 void
@@ -4949,7 +5054,8 @@ struct mpioapic {       // I/O APIC table entry
 
 //PAGEBREAK!
 // Blank page.
-#define NPROC        64  // maximum number of processes
+#define NPROC        32  // maximum number of processes
+#define NPRI					2	 // number of priority types
 #define KSTACKSIZE 4096  // size of per-process kernel stack
 #define NCPU          8  // maximum number of CPUs
 #define NOFILE       16  // open files per process
@@ -5598,10 +5704,13 @@ page_fault_error(pde_t *pgdir, uint va)
   pte_t *pte;
 
   a = (char*)PGROUNDDOWN(va);
-  if( (pte = walkpgdir(pgdir, a, 0)) == 0)
-    return -1;
-	if(*pte & CR4_PSE)	
-	error = *pte & 0x1F;
+  if( (pte = walkpgdir(pgdir, a, 0)) == 0){
+    //Si la página que se busca no está mapeada, se devuelve
+		//0 para que sea concedida
+		return 0;
+	}
+		
+	error = *pte & 0x7;
 	
   return error;
 }
@@ -6233,9 +6342,9 @@ struct spinlock {
 #include "proc.h"
 #include "spinlock.h"
 
-struct {
+struct {//Ya he empezado cambios. Anotados en la libreta
   struct spinlock lock;
-  struct proc proc[NPROC];
+  struct proc proc[NPRI][NPROC];
 } ptable;
 
 static struct proc *initproc;
@@ -6304,9 +6413,12 @@ allocproc(void)
 
   acquire(&ptable.lock);
 
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == UNUSED)
-      goto found;
+		for(int i=0; i<NPRI; i++){
+			for(p = ptable.proc[i]; p < &ptable.proc[i][NPROC]; p++){
+				if(p->state == UNUSED)
+					goto found;
+			}
+		}
 
   release(&ptable.lock);
   return 0;
@@ -6314,6 +6426,8 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+	//Por defecto la prioridad es 0 = NORM_PRIO
+	//p->prio = NORM_PRIO;	
 
   release(&ptable.lock);
 
@@ -6375,7 +6489,6 @@ userinit(void)
   acquire(&ptable.lock);
 
   p->state = RUNNABLE;
-
   release(&ptable.lock);
 }
 
@@ -6425,6 +6538,7 @@ fork(void)
   np->sz = curproc->sz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
+	np->prio = curproc->prio;
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -6445,6 +6559,133 @@ fork(void)
   release(&ptable.lock);
 
   return pid;
+}
+
+/*
+	Search in ptable for the process pid
+	Return the priority of the process
+	On error return -1
+*/
+int
+getprio(int pid)
+{
+	int i=0;
+	struct proc *p;
+	cprintf("pid looking for=%d\n",pid);
+	acquire(&ptable.lock);
+	
+	for(i=0; i<NPRI; i++){
+		for(p = ptable.proc[i]; p < &ptable.proc[i][NPROC]; p++){
+			cprintf(".................................name=%s\n",p->name);
+			if(p->pid == pid){
+				release(&ptable.lock);
+				return i;
+			}
+		}
+	}
+	
+	release(&ptable.lock);
+	return -1;
+}
+
+/*
+	replace_process(struct proc *old, struct proc *new)
+	Replace process values between old and new
+	process
+*/
+void
+replace_process(struct proc *old, struct proc *new)
+{
+	int i=0;
+
+	new->sz = old->sz;
+	old->sz = 0;
+	new->pgdir = old->pgdir;
+	old->pgdir = 0;
+	new->kstack = old->kstack;
+	old->kstack = 0;
+	if(old == myproc())
+		new->state = RUNNING;
+	else new->state = RUNNABLE;
+	old->state = UNUSED;
+	new->pid = old->pid;
+	old->pid = 0;
+	new->parent = old->parent;
+	old->parent = 0;
+	new->tf = old->tf;
+	old->tf = 0;
+	new->stack_end = old->stack_end;
+	old->stack_end = 0;
+	new->context = old->context;
+	old->context = 0;
+	new->chan = old->chan;
+	old->chan = 0;
+	//ofile
+	for(i=0; i<NOFILE; i++){
+		new->ofile[i] = old->ofile[i];
+		old->ofile[i] = 0;
+	}
+	new->cwd = old->cwd;
+	old->cwd = 0;
+	//name
+	for(i=0; i<16; i++){
+		new->name[i] = old->name[i];
+		old->name[i] = 0;
+	}	
+}
+
+
+/*
+	Set priority to a process in the ptable
+	return 0 on success. -1 on error
+*/
+int
+setprio(int pid, enum proc_prio prio)
+{
+	int i = ~(prio) & 0x1;//Comenzamos por la prioridad contraria
+  struct proc *p; //Variable para recorrer la ptable
+	struct proc *e; //Variable que apunta al proceso que buscamos
+	int busq = 0;//Variable de terminación bucle
+
+  acquire(&ptable.lock);
+
+	cprintf("setprio_i=%d\n",i);
+	//bucle de búsqueda del proceso pid
+  for(; busq < NPRI; i = ~(i) & 0x1){
+		busq++;
+    for(p = ptable.proc[i]; p < &ptable.proc[i][NPROC] && busq < NPRI; p++){
+      cprintf("...................name=%s, prio=%d\n",p->name, p->prio);
+      if(p->pid == pid){
+				busq = NPRI;
+        e = p;
+      }
+    }
+  }
+	
+	if(e->prio == prio){
+		release(&ptable.lock);	
+		return 0;
+	}
+	
+	//Cambiamos al proceso de cola
+	i = ~(i) & 0x1;
+	//Recorremos la cola de prioridad prio buscando un hueco
+	p = ptable.proc[i];
+	while(p < &ptable.proc[i][NPROC] && p->state != UNUSED){
+		p++;	
+	}
+	
+	if(p >= &ptable.proc[i][NPROC]){
+		release(&ptable.lock);
+		return -1;
+	}
+
+	//Ponemos al proceso en el nuevo hueco
+	replace_process(e, p);
+	p->prio = prio;
+
+  release(&ptable.lock);
+  return 0;
 }
 
 
@@ -6482,13 +6723,15 @@ exit(int status)
   wakeup1(curproc->parent);
 
   // Pass abandoned children to init.
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->parent == curproc){
-      p->parent = initproc;
-      if(p->state == ZOMBIE)
-        wakeup1(initproc);
-    }
-  }
+	for(int i=0; i<NPRI; i++){
+		for(p = ptable.proc[i]; p < &ptable.proc[i][NPROC]; p++){
+			if(p->parent == curproc){
+				p->parent = initproc;
+				if(p->state == ZOMBIE)
+					wakeup1(initproc);
+			}
+		}
+	}
 
   // Optimize by removing user part
   deallocuvm(curproc->pgdir, KERNBASE, 0);
@@ -6513,27 +6756,30 @@ wait(int *status)
   for(;;){
     // Scan through table looking for exited children.
     havekids = 0;
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->parent != curproc)
-        continue;
-      havekids = 1;
-      if(p->state == ZOMBIE){
-      	//cuando llegue aquí significa que hemos encontrado al hijo
-        //que estábamos buscando
-        *status = p->exitcode;
-        pid = p->pid;
-        kfree(p->kstack);
-        p->kstack = 0;
-        freevm(p->pgdir, 0); // User zone deleted before
-        p->pid = 0;
-        p->parent = 0;
-        p->name[0] = 0;
-        p->killed = 0;
-        p->state = UNUSED;
-        release(&ptable.lock);
-        return pid;
-      }
-    }
+			
+		for(int i=0; i<NPRI; i++){
+			for(p = ptable.proc[i]; p < &ptable.proc[i][NPROC]; p++){
+				if(p->parent != curproc)
+        	continue;
+      	havekids = 1;
+      	if(p->state == ZOMBIE){
+        	//cuando llegue aquí significa que hemos encontrado al hijo
+        	//que estábamos buscando
+        	*status = p->exitcode;
+        	pid = p->pid;
+        	kfree(p->kstack);
+        	p->kstack = 0;
+        	freevm(p->pgdir, 0); // User zone deleted before
+        	p->pid = 0;
+        	p->parent = 0;
+        	p->name[0] = 0;
+        	p->killed = 0;
+        	p->state = UNUSED;
+        	release(&ptable.lock);
+        	return pid;
+      	}
+			}
+		}
 
     // No point waiting if we don't have any children.
     if(!havekids || curproc->killed){
@@ -6558,6 +6804,7 @@ wait(int *status)
 void
 scheduler(void)
 {
+	int i = NPRI-1;//Comenzamos por la cola de alta prioridad
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
@@ -6568,24 +6815,33 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
+		for(i = NPRI-1; i>=0 ; i--){
+			p = ptable.proc[i];
+			while(p < &ptable.proc[i][NPROC]){
+				if(p->state != RUNNABLE){
+					p++;
+        	continue;
+				}
+      	// Switch to chosen process.  It is the process's job
+      	// to release ptable.lock and then reacquire it
+      	// before jumping back to us.
+      	c->proc = p;
+      	switchuvm(p);
+      	p->state = RUNNING;
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
+      	swtch(&(c->scheduler), p->context);
+				//Cuando un proceso ejecute swtch el scheduler aparece
+				//ejecutando por aquí. Por ello, empezamos a recorrer
+				//por la tabla de prioridad alta
+				i = NPRI-1;
+				p = ptable.proc[i];
+      	switchkvm();//Cambia a la tabla de páginas del kernel
 
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
-
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
-    }
+      	// Process is done running for now.
+      	// It should have changed its p->state before coming back.
+      	c->proc = 0;
+			}
+		}
     release(&ptable.lock);
 
   }
@@ -6694,10 +6950,12 @@ static void
 wakeup1(void *chan)
 {
   struct proc *p;
-
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
-      p->state = RUNNABLE;
+	for(int i=0; i<NPRI; i++){
+		for(p = ptable.proc[i]; p < &ptable.proc[i][NPROC]; p++){
+			if(p->state == SLEEPING && p->chan == chan)
+      	p->state = RUNNABLE;		
+		}
+	}
 }
 
 
@@ -6719,16 +6977,18 @@ kill(int pid)
   struct proc *p;
 
   acquire(&ptable.lock);
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->pid == pid){
-      p->killed = 1;
-      // Wake process from sleep if necessary.
-      if(p->state == SLEEPING)
-        p->state = RUNNABLE;
-      release(&ptable.lock);
-      return 0;
-    }
-  }
+	for(int i=0; i<NPRI; i++){
+		for(p = ptable.proc[i]; p < &ptable.proc[i][NPROC]; p++){
+			if(p->pid == pid){
+      	p->killed = 1;
+      	// Wake process from sleep if necessary.
+      	if(p->state == SLEEPING)
+      	  p->state = RUNNABLE;
+      	release(&ptable.lock);
+      	return 0;
+    	}
+		}
+	}
   release(&ptable.lock);
   return -1;
 }
@@ -6749,26 +7009,28 @@ procdump(void)
   [ZOMBIE]    "zombie"
  
   };
-  int i;
+  int j;
   struct proc *p;
   char *state;
   uint pc[10];
 
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->state == UNUSED)
-      continue;
-    if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
-      state = states[p->state];
-    else
-      state = "???";
-    cprintf("%d %s %s", p->pid, state, p->name);
-    if(p->state == SLEEPING){
-      getcallerpcs((uint*)p->context->ebp+2, pc);
-      for(i=0; i<10 && pc[i] != 0; i++)
-        cprintf(" %p", pc[i]);
-    }
-    cprintf("\n");
-  }
+		for(int i=0; i<NPRI; i++){
+			for(p = ptable.proc[i]; p < &ptable.proc[i][NPROC]; p++){
+				if(p->state == UNUSED)
+      		continue;
+    		if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
+      		state = states[p->state];
+    		else
+      		state = "???";
+    		cprintf("%d %s %s", p->pid, state, p->name);
+    		if(p->state == SLEEPING){
+      		getcallerpcs((uint*)p->context->ebp+2, pc);
+      		for(j=0; j<10 && pc[j] != 0; j++)
+        		cprintf(" %p", pc[j]);
+    		}
+    		cprintf("\n");				
+			}
+		}
 }
 // Sleeping locks
 
@@ -6984,6 +7246,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+enum proc_prio;
 
 // bio.c
 void            binit(void);
@@ -7095,6 +7358,9 @@ void            sleep(void*, struct spinlock*);
 void            userinit(void);
 void            wakeup(void*);
 void            yield(void);
+int							getprio(int);
+void						replace(struct proc *, struct proc *);
+int							setprio(int, enum proc_prio );
 
 // swtch.S
 void            swtch(struct context**, struct context*);
@@ -7168,29 +7434,31 @@ uint						page_fault_error(pde_t *, uint);
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
 
 // System call numbers
-#define SYS_fork    1
-#define SYS_exit    2
-#define SYS_wait    3
-#define SYS_pipe    4
-#define SYS_read    5
-#define SYS_kill    6
-#define SYS_exec    7
-#define SYS_fstat   8
-#define SYS_chdir   9
-#define SYS_dup    10
-#define SYS_getpid 11
-#define SYS_sbrk   12
-#define SYS_sleep  13
-#define SYS_uptime 14
-#define SYS_open   15
-#define SYS_write  16
-#define SYS_mknod  17
-#define SYS_unlink 18
-#define SYS_link   19
-#define SYS_mkdir  20
-#define SYS_close  21
-#define SYS_date	 22
-#define SYS_dup2	 23
+#define SYS_fork   	 1
+#define SYS_exit   	 2
+#define SYS_wait   	 3
+#define SYS_pipe   	 4
+#define SYS_read   	 5
+#define SYS_kill   	 6
+#define SYS_exec   	 7
+#define SYS_fstat  	 8
+#define SYS_chdir  	 9
+#define SYS_dup    	10
+#define SYS_getpid 	11
+#define SYS_sbrk   	12
+#define SYS_sleep  	13
+#define SYS_uptime 	14
+#define SYS_open   	15
+#define SYS_write  	16
+#define SYS_mknod  	17
+#define SYS_unlink 	18
+#define SYS_link   	19
+#define SYS_mkdir  	20
+#define SYS_close  	21
+#define SYS_date	 	22
+#define SYS_dup2	 	23
+#define SYS_getprio	24
+#define SYS_setprio 25
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -7521,13 +7789,6 @@ idtinit(void)
   lidt(idt, sizeof(idt));
 }
 
-
-void
-print_error(int code)
-{
-	cprintf("\nPage Fault, Error %d\n",code);
-}
-
 //PAGEBREAK: 41
 void
 trap(struct trapframe *tf)
@@ -7579,42 +7840,30 @@ trap(struct trapframe *tf)
 	
   //PAGEBREAK: 13
 	case T_PGFLT: //Fallo de página
-/*/borrar
-		cprintf("pid %d %s: trap %d err %d on cpu %d eip 0x%x addr 0x%x ->sz = 0x%x, groundown(rcr2)=%x\n",
-            myproc()->pid, myproc()->name, tf->trapno,
-            tf->err, cpuid(), tf->eip, rcr2(),myproc()->sz, PGROUNDDOWN(rcr2()));
-//end borrar		
-*/
 		/*
 			Comprobaciones antes de conceder la página
 			Vamos a coger la página pedida para ver sus flags
 			En caso de acceso indebido, se devuelve error_code
 		*/
-		uint error_code =	page_fault_error(myproc()->pgdir, rcr2());
 
+		uint error_code =	page_fault_error(myproc()->pgdir, rcr2());
 		//Comprobamos que accede dentro del size
 		if(rcr2() > myproc()->sz){
-			cprintf("fuera de sz\n");
-			cprintf("tf->err=%d\n", tf->err);
-			print_error(error_code);
+			cprintf("\nPage Fault: Address out of range. Error %d\n",error_code);
 			myproc()->killed = 1;
 			break;
 		}
 
 		//Comprobamos que no accede a nada por debajo de la pila
 		if(rcr2() < myproc()->stack_end){
-			cprintf("debajo de la pila:\n");
-			cprintf("tf->err=%d\n", tf->err);
-			print_error(error_code);
+			cprintf("\nPage Fault: Address out of range. Error %d\n",error_code);
 			myproc()->killed = 1;
 			break;
 		}
 
 		//Comprobamos si accede a la zona del kernel
 		if(rcr2() >= KERNBASE){
-			cprintf("kernbase superado\n");
-			cprintf("tf->err=%d\n", tf->err);
-			print_error(error_code);
+			cprintf("\nPage Fault: Address out of range. Error %d\n",error_code);
 			myproc()->killed = 1;
 			break;
 		}	
@@ -7814,9 +8063,10 @@ sys_sbrk(void)
 		if((newsz = deallocuvm(myproc()->pgdir, oldsz, newsz)) == 0)
       return -1;
 	}
+
   lcr3(V2P(myproc()->pgdir));  // Invalidate TLB. Cambia la tabla de páginas		
 
-	//Ahora cambiamos el tamaño del proceso
+	//Ahora actualizamos el tamaño del proceso
 	myproc()->sz = newsz;
   
   return oldsz;
@@ -8388,9 +8638,11 @@ struct context {
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+enum proc_prio { NORM_PRIO, HI_PRIO };
+
 // Per-process state
 struct proc {
-  uint stack_end;
+	enum proc_prio prio;				 // Process priority
 	int exitcode;								 // Exitcode of process
 	uint sz;                     // Size of process memory (bytes)
   pde_t* pgdir;                // Page table
@@ -8399,6 +8651,7 @@ struct proc {
   int pid;                     // Process ID
   struct proc *parent;         // Parent process
   struct trapframe *tf;        // Trap frame for current syscall
+  uint stack_end;							 // Address of stack ending
   struct context *context;     // swtch() here to run process
   void *chan;                  // If non-zero, sleeping on chan
   int killed;                  // If non-zero, have been killed
@@ -9635,6 +9888,60 @@ sys_dup2(void)//dup2(int oldfd, int newfd)
   return newfd;
 }
 
+
+/*
+	getprio( int pid);
+	Dado un pid, devolver la prioridad
+	que le corresponde a ese proceso
+	Se devuelve -1 en caso de error
+*/
+//enum proc_prio
+int
+sys_getprio(void)
+{
+	cprintf("--getprio--");
+	int ret = 13;
+	int pid;
+	
+	//Recuperar argumentos
+	if(argint(0, &pid) < 0)
+		return -1;	
+	
+	//Comprobación de pid positivo	
+	if(pid < 0)
+		return -1;
+
+	//Debemos acceder a la ptable
+	//para buscar el proceso
+	//y devolvemos su prioridad
+	ret = getprio(pid);	
+	cprintf("%s-pid=%d-pri=%d\n",myproc()->name,pid,ret);
+	return ret;
+}
+
+/*
+	setprio (int pid, enum proc_prio prio)
+	Asigna la prioridad prio al proceso
+	con el pid indicado.
+	Devolvemos 0 en caso exitoso. -1 en caso
+	contrario
+*/
+int 
+sys_setprio(void)
+{
+	cprintf("--setprio--");
+	int pid;
+	enum proc_prio prio;
+
+	//Recuperar argumentos
+	if(argint(0, &pid) < 0)
+		return -1;
+
+	if(argptr(1,(void**) &prio, sizeof(enum proc_prio)) < 0)
+		return -1;
+
+	return setprio(pid, prio);
+}
 
 
 
