@@ -38,10 +38,10 @@ main(int argc, char *argv[])
   //printf (1, "Este programa primero intenta acceder mas alla de sz.\n");
 
   // Más allá de sz
-  //test1();
+  test1();
 
   // Acceso Página Guarda
-  //test2();
+  test2();
 
   // Acceso Núcleo
   test3();

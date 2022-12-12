@@ -169,10 +169,12 @@ main(void)
       runcmd(parsecmd(buf));
     wait(&status);
 		//Mostramos el estado de salida del proceso ejecutado
+/*
     if (WIFEXITED (status))
       printf(1, "Output code: %d\n",WEXITSTATUS(status));
     else if(WIFSIGNALED(status))
       printf (1, "Output code (failure): %d\n",WEXITTRAP(status));
+*/
   }
   exit(0);
 }

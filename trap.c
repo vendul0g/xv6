@@ -86,32 +86,16 @@ trap(struct trapframe *tf)
 		/*
 			Comprobaciones antes de conceder la página
 			Vamos a coger la página pedida para ver sus flags
-			En caso de acceso indebido, se devuelve error_code
+			(U, W, P)
 		*/
-
-		uint error_code =	page_fault_error(myproc()->pgdir, rcr2());
-		//Comprobamos que accede dentro del size
-		if(rcr2() > myproc()->sz){
-			cprintf("\nPage Fault: Address out of range. Error %d\n",error_code);
+		
+		if(tf->err == 7){//Solo fallamos ante violación de privilegios
+			cprintf("\nPage Fault: No Permission . Error %d\n",tf->err);
 			myproc()->killed = 1;
 			break;
 		}
-
-		//Comprobamos que no accede a nada por debajo de la pila
-		if(rcr2() < myproc()->stack_end){
-			cprintf("\nPage Fault: Address out of range. Error %d\n",error_code);
-			myproc()->killed = 1;
-			break;
-		}
-
-		//Comprobamos si accede a la zona del kernel
-		if(rcr2() >= KERNBASE){
-			cprintf("\nPage Fault: Address out of range. Error %d\n",error_code);
-			myproc()->killed = 1;
-			break;
-		}	
-
-		//Si cumplen todas las condiciones: coger una página física
+		
+		// coger una página física
 		char *mem = kalloc();
     if(mem == 0)
     {

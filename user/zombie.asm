@@ -176,3 +176,15 @@ SYSCALL(dup2)
   e3:	b8 17 00 00 00       	mov    $0x17,%eax
   e8:	cd 40                	int    $0x40
   ea:	c3                   	ret    
+
+000000eb <getprio>:
+SYSCALL(getprio)
+  eb:	b8 18 00 00 00       	mov    $0x18,%eax
+  f0:	cd 40                	int    $0x40
+  f2:	c3                   	ret    
+
+000000f3 <setprio>:
+SYSCALL(setprio)
+  f3:	b8 19 00 00 00       	mov    $0x19,%eax
+  f8:	cd 40                	int    $0x40
+  fa:	c3                   	ret    

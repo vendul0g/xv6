@@ -10,7 +10,6 @@
 struct {//Aún no la he liado. Mi idea es poner aquí 2 arrays de procesos, según la prioridad
   struct spinlock lock;
   struct proc proc[NPROC];
-	struct proc stable[NPRI][NPROC];
 } ptable;
 
 static struct proc *initproc;
@@ -89,7 +88,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
-	p->prio = NORM_PRIO;	
+	p->prio = NORM_PRIO;
 
   release(&ptable.lock);
 
@@ -224,6 +223,51 @@ fork(void)
 }
 
 
+/*
+	Search in ptable for the process pid
+	Return the priority of the process
+	On error return -1
+*/
+int
+getprio(int pid)
+{
+	struct proc *p;
+	
+	acquire(&ptable.lock);
+	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+		if(p->pid == pid){
+			release(&ptable.lock);
+			return p->prio;
+		}
+	}
+		
+	release(&ptable.lock);
+	return -1;
+}
+
+
+/*
+	Set priority to a process in the ptable
+	return 0 on success. -1 on error
+*/
+int
+setprio(int pid, enum proc_prio prio)
+{
+	struct proc *e; 
+
+  acquire(&ptable.lock);
+	//bucle de búsqueda del proceso pid
+  for(e = ptable.proc; e < &ptable.proc[NPROC]; e++){
+    if(e->pid == pid){
+			e->prio = prio;
+			release(&ptable.lock);
+			return 0;
+    }
+  }
+	release(&ptable.lock);
+	return -1;
+}
+
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait() to find out it exited.
@@ -334,6 +378,7 @@ wait(int *status)
 void
 scheduler(void)
 {
+	int take_norm = 0;
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
@@ -344,28 +389,29 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-		for(int i = NPRI-1; i >= 0; i--){
-			for(p = ptable.stable[i]; p< &ptable.stable[i][NPROC]; p++){
-				if(p->state != RUNNABLE)
-					continue;
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->state != RUNNABLE)
+        continue;
+			if(p->prio == NORM_PRIO && take_norm == 0)
+				continue;
+			if(take_norm)
+				take_norm = 0;
+      // Switch to chosen process.  It is the process's job
+      // to release ptable.lock and then reacquire it
+      // before jumping back to us.
+      c->proc = p;
+      switchuvm(p);
+      p->state = RUNNING;
 
-				// Switch to chosen process.  It is the process's job
-	      // to release ptable.lock and then reacquire it
-  	    // before jumping back to us.
-  	    c->proc = p;
-  	    switchuvm(p);
-  	    p->state = RUNNING;
-	
-	      swtch(&(c->scheduler), p->context);
-	      switchkvm();//Cambia a la tabla de páginas del kernel
-	
-	      // Process is done running for now.
-	      // It should have changed its p->state before coming back.
-	      c->proc = 0;
-			}
-		}
+      swtch(&(c->scheduler), p->context);
+      switchkvm();//Cambia a la tabla de páginas del kernel
+
+      // Process is done running for now.
+      // It should have changed its p->state before coming back.
+      c->proc = 0;
+    }
     release(&ptable.lock);
-
+		take_norm = 1;
   }
 }
 

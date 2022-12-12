@@ -9,6 +9,7 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+enum	 proc_prio;
 
 // bio.c
 void            binit(void);
@@ -120,6 +121,8 @@ void            sleep(void*, struct spinlock*);
 void            userinit(void);
 void            wakeup(void*);
 void            yield(void);
+int							getprio(int);
+int							setprio(int, enum proc_prio );
 
 // swtch.S
 void            swtch(struct context**, struct context*);
@@ -187,7 +190,6 @@ void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
 int             mappages(pde_t *, void *, uint, uint, int);
-uint						page_fault_error(pde_t *, uint);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
