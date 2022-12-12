@@ -120,63 +120,6 @@ sys_dup2(void)//dup2(int oldfd, int newfd)
 }
 
 
-/*
-	getprio( int pid);
-	Dado un pid, devolver la prioridad
-	que le corresponde a ese proceso
-	Se devuelve -1 en caso de error
-*/
-//enum proc_prio
-int
-sys_getprio(void)
-{
-	cprintf("--getprio--");
-	int ret = 13;
-	int pid;
-	
-	//Recuperar argumentos
-	if(argint(0, &pid) < 0)
-		return -1;	
-	
-	//Comprobación de pid positivo	
-	if(pid < 0)
-		return -1;
-
-	//Debemos acceder a la ptable
-	//para buscar el proceso
-	//y devolvemos su prioridad
-	ret = getprio(pid);	
-	cprintf("getprio-ret\n");
-	return ret;
-}
-
-/*
-	setprio (int pid, enum proc_prio prio)
-	Asigna la prioridad prio al proceso
-	con el pid indicado.
-	Devolvemos 0 en caso exitoso. -1 en caso
-	contrario
-*/
-int 
-sys_setprio(void)
-{
-	int ret=7;
-	cprintf("--setprio--");
-	int pid;
-	enum proc_prio prio;
-
-	//Recuperar argumentos
-	if(argint(0, &pid) < 0)
-		return -1;
-
-	if(argptr(1,(void**) &prio, sizeof(enum proc_prio)) < 0)
-		return -1;
-
-	ret = setprio(pid, prio);
-	cprintf("setprio return %d\n",ret);
-	return ret;
-}
-
 
 
 int

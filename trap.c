@@ -92,21 +92,21 @@ trap(struct trapframe *tf)
 		uint error_code =	page_fault_error(myproc()->pgdir, rcr2());
 		//Comprobamos que accede dentro del size
 		if(rcr2() > myproc()->sz){
-			cprintf("\nPage Fault1: Address out of range. Error %d\n",error_code);
+			cprintf("\nPage Fault: Address out of range. Error %d\n",error_code);
 			myproc()->killed = 1;
 			break;
 		}
 
 		//Comprobamos que no accede a nada por debajo de la pila
 		if(rcr2() < myproc()->stack_end){
-			cprintf("\nPage Fault2: Address out of range. Error %d\n",error_code);
+			cprintf("\nPage Fault: Address out of range. Error %d\n",error_code);
 			myproc()->killed = 1;
 			break;
 		}
 
 		//Comprobamos si accede a la zona del kernel
 		if(rcr2() >= KERNBASE){
-			cprintf("\nPage Fault3: Address out of range. Error %d\n",error_code);
+			cprintf("\nPage Fault: Address out of range. Error %d\n",error_code);
 			myproc()->killed = 1;
 			break;
 		}	
