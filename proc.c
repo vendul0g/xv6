@@ -7,7 +7,7 @@
 #include "proc.h"
 #include "spinlock.h"
 
-struct {//Aún no la he liado. Mi idea es poner aquí 2 arrays de procesos, según la prioridad
+struct {
   struct spinlock lock;
   struct proc proc[NPROC];
 } ptable;
@@ -375,12 +375,50 @@ wait(int *status)
 //  - swtch to start running that process
 //  - eventually that process transfers control
 //      via swtch back to the scheduler.
+    // Loop over process table looking for process to run.
 void
 scheduler(void)
 {
-	int take_norm = 0;
   struct proc *p;
   struct cpu *c = mycpu();
+  c->proc = 0;
+  struct proc *aux, *p1;
+
+  for(;;){
+    sti();
+
+    acquire(&ptable.lock);
+   
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->state != RUNNABLE) continue;
+        
+        p1=0;
+        for(aux = ptable.proc; aux < &ptable.proc[NPROC]; aux++){   
+             if((aux->state == RUNNABLE) && (aux->prio == HI_PRIO)) {p1=aux; break;}
+          }
+     
+       if(p1 != 0) p = p1;
+
+        c->proc = p;
+        switchuvm(p);
+        p->state = RUNNING;
+        swtch(&(c->scheduler), p->context);
+        switchkvm();
+     
+        c->proc = 0;
+    }
+    release(&ptable.lock);
+  }
+}
+
+
+void
+scheduler1(void)
+{
+	struct proc *p;
+	struct proc *p1;
+  struct cpu *c = mycpu();
+	struct proc *aux;
   c->proc = 0;
 
   for(;;){
@@ -389,13 +427,25 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
+
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
+      if(p->state != RUNNABLE)//se mantiene igual
         continue;
-			if(p->prio == NORM_PRIO && take_norm == 0)
-				continue;
-			if(take_norm)
-				take_norm = 0;
+			
+			p1 = 0;
+			if(p->prio == NORM_PRIO){
+				for(aux = ptable.proc; aux < &ptable.proc[NPROC]; p++){
+					if(aux->state == RUNNABLE && aux->prio == HI_PRIO){
+						p1 = aux;
+						break;
+					}
+				}
+			}
+			
+			if(p1 != 0){
+				p = p1;
+			}
+			
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
@@ -411,7 +461,6 @@ scheduler(void)
       c->proc = 0;
     }
     release(&ptable.lock);
-		take_norm = 1;
   }
 }
 

@@ -6,12 +6,12 @@ main(int argc, char *argv[])
 {
 
   // El padre sale, el hijo establece la máxima prioridad
-  if (fork() != 0)
-    exit(1);
-  
-  // Establecer máxima prioridad. Debe hacer que el shell ni aparezca hasta
-  // que termine
-  setprio (getpid(), HI_PRIO);
+  if (fork() == 0){
+  	// Establecer máxima prioridad. Debe hacer que el shell ni aparezca hasta
+  	// que termine
+  	setprio (getpid(), HI_PRIO);
+  }
+  else exit(1);
 
   int r = 0;
   

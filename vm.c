@@ -55,29 +55,6 @@ walkpgdir(pde_t *pgdir, const void *va, int alloc)
 }
 
 
-// Page fault error:
-// Search in the page table for an address to check what flags 
-// are set
-// Return an "uint" value with the flags activated in the entry
-// of address in the page table
-uint
-page_fault_error(pde_t *pgdir, uint va)
-{
-	uint error;
-  char *a;
-  pte_t *pte;
-
-  a = (char*)PGROUNDDOWN(va);
-  if( (pte = walkpgdir(pgdir, a, 0)) == 0){
-    //Si la página que se busca no está mapeada, se devuelve
-		//0 para que sea concedida
-		return 0;
-	}
-		
-	error = *pte & 0x7;
-	
-  return error;
-}
 
 
 // Create PTEs for virtual addresses starting at va that refer to

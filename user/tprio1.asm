@@ -22,34 +22,35 @@ main(int argc, char *argv[])
   10:	83 ec 0c             	sub    $0xc,%esp
 
   // El padre sale, el hijo establece la máxima prioridad
-  if (fork() != 0)
+  if (fork() == 0){
   13:	e8 5f 00 00 00       	call   77 <fork>
   18:	85 c0                	test   %eax,%eax
-  1a:	74 0a                	je     26 <main+0x26>
-    exit(1);
-  1c:	83 ec 0c             	sub    $0xc,%esp
-  1f:	6a 01                	push   $0x1
-  21:	e8 59 00 00 00       	call   7f <exit>
-  26:	89 c3                	mov    %eax,%ebx
-  
-  // Establecer máxima prioridad. Debe hacer que el shell ni aparezca hasta
-  // que termine
-  setprio (getpid(), HI_PRIO);
-  28:	e8 d2 00 00 00       	call   ff <getpid>
-  2d:	83 ec 08             	sub    $0x8,%esp
-  30:	6a 01                	push   $0x1
-  32:	50                   	push   %eax
-  33:	e8 ff 00 00 00       	call   137 <setprio>
+  1a:	75 1b                	jne    37 <main+0x37>
+  1c:	89 c3                	mov    %eax,%ebx
+  	// Establecer máxima prioridad. Debe hacer que el shell ni aparezca hasta
+  	// que termine
+  	setprio (getpid(), HI_PRIO);
+  1e:	e8 dc 00 00 00       	call   ff <getpid>
+  23:	83 ec 08             	sub    $0x8,%esp
+  26:	6a 01                	push   $0x1
+  28:	50                   	push   %eax
+  29:	e8 09 01 00 00       	call   137 <setprio>
+  }
+  else exit(1);
 
   int r = 0;
   
   for (int i = 0; i < 2000; ++i)
-  38:	83 c4 10             	add    $0x10,%esp
-  3b:	89 de                	mov    %ebx,%esi
+  2e:	83 c4 10             	add    $0x10,%esp
+  31:	89 de                	mov    %ebx,%esi
   int r = 0;
-  3d:	89 da                	mov    %ebx,%edx
+  33:	89 da                	mov    %ebx,%edx
   for (int i = 0; i < 2000; ++i)
-  3f:	eb 0e                	jmp    4f <main+0x4f>
+  35:	eb 18                	jmp    4f <main+0x4f>
+  else exit(1);
+  37:	83 ec 0c             	sub    $0xc,%esp
+  3a:	6a 01                	push   $0x1
+  3c:	e8 3e 00 00 00       	call   7f <exit>
     for (int j = 0; j < 1000000; ++j)
       r += i + j;
   41:	8d 0c 06             	lea    (%esi,%eax,1),%ecx
